@@ -1,0 +1,51 @@
+- name: Install docker
+  shell: amazon-linux-extras install docker -y
+  when: ansible_facts['distribution'] == "Amazon"
+- name: Install yum utils
+  yum:
+    name: yum-utils
+    state: present
+  when: ansible_facts['os_family'] == "CentOS"
+- name: Add docker ce repo
+  yum_repository:
+    baseurl: https://download.docker.com/linux/centos/docker-ce.repo
+  when: ansible_facts['os_family'] == "CentOS"
+- name: Install docker
+  yum:
+   name: docker-ce
+   state: present
+  when: ansible_facts['os_family'] == "CentOS"
+- name: start and enable docker service
+  service:
+    name: docker
+    state: started
+    enabled: yes
+- name: Add user to docker group
+  user:
+    name: ec2-user
+    groups: docker
+    append: yes
+- name: Install docker compose
+  get_url:
+    url: https://github.com/docker/compose/releases/download/v2.0.1/docker-compose-linux-x86_64
+    dest: /usr/local/bin/docker-compose
+    mode: 755
+- name: Create link
+  file:
+    src: /usr/local/bin/docker-compose
+    dest: /usr/bin/docker-compose
+    state: link
+- name: Copy docker compose
+  template:
+    src: docker-compose.j2
+    dest: /tmp/docker-compose.yml
+  when: install_type == "docker"
+- name: Copy docker compose
+  template:
+    src: docker-compose-rds.j2
+    dest: /tmp/docker-compose.yml
+  when: install_type == "with_docker_rds"
+- name: Install wordpress
+  shell: docker-compose up -d
+  args:
+    chdir: /tmp
